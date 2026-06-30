@@ -2,3 +2,4 @@
 .idea
 .venv
 test.sh
+__pycache__
