@@ -1,37 +1,19 @@
-# ---- Builder: compile dependencies (psycopg2 needs gcc + libpq headers) ----
-FROM python:3.12-slim AS builder
+FROM python:3.12-slim
 
-ENV PIP_NO_CACHE_DIR=1 \
+ENV PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        gcc \
-        libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# Build all dependencies into an isolated virtualenv we can copy wholesale.
-RUN python -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+# psycopg2-binary, numpy, and pandas all ship manylinux wheels, so no compiler
+# or system libpq is required — pip installs prebuilt binaries.
+WORKDIR /app
 
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
-# ---- Runtime: slim image with only the libpq runtime library ----
-FROM python:3.12-slim AS runtime
-
-ENV PYTHONUNBUFFERED=1 \
-    PATH="/opt/venv/bin:$PATH"
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        libpq5 \
-    && rm -rf /var/lib/apt/lists/* \
-    && useradd --create-home --uid 1000 collector
-
-COPY --from=builder /opt/venv /opt/venv
-
-WORKDIR /app
 COPY collector.py .
 
+RUN useradd --create-home --uid 1000 collector
 USER collector
 
 # DB connection is supplied at runtime via env vars:
