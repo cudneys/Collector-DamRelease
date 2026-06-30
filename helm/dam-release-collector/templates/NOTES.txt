@@ -1,0 +1,25 @@
+{{ include "dam-release-collector.fullname" . }} is installed.
+
+CronJob schedule: {{ .Values.schedule }}
+Args:           {{ join " " .Values.args }}
+Image:          {{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}
+DB credentials: {{ if .Values.database.existingSecret }}existing Secret "{{ .Values.database.existingSecret }}"{{ else }}Secret "{{ include "dam-release-collector.fullname" . }}" (managed by this chart){{ end }}
+
+Useful commands:
+
+  # Inspect the CronJob
+  kubectl get cronjob {{ include "dam-release-collector.fullname" . }} -n {{ .Release.Namespace }}
+
+  # Trigger an immediate run (e.g. to test or to backfill)
+  kubectl create job --from=cronjob/{{ include "dam-release-collector.fullname" . }} \
+    {{ include "dam-release-collector.fullname" . }}-manual -n {{ .Release.Namespace }}
+
+  # Tail logs of the most recent run
+  kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }} --tail=100
+
+For a one-off backfill over a fixed window, override args, e.g.:
+
+  helm install backfill ./dam-release-collector \
+    --set schedule='@yearly' --set suspend=true \
+    --set 'args={--start,2026-01-01,--end,2026-06-01}'
+  kubectl create job --from=cronjob/<name> backfill-run

@@ -1,0 +1,64 @@
+image:
+  repository: dam-release-collector
+  tag: ""              # defaults to .Chart.AppVersion when empty
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+# Arguments passed to collector.py. The default pulls the most recent window
+# on every run. A little overlap (e.g. 90m on an hourly schedule) is cheap
+# insurance against a delayed/missed run, since duplicate readings are skipped.
+args:
+  - "--lookback"
+  - "1h"
+
+# CronJob scheduling.
+schedule: "0 * * * *"          # hourly, on the hour
+concurrencyPolicy: Forbid      # never overlap runs
+restartPolicy: OnFailure
+startingDeadlineSeconds: 120
+successfulJobsHistoryLimit: 3
+failedJobsHistoryLimit: 3
+backoffLimit: 3
+activeDeadlineSeconds: 600     # kill a run that hangs past 10 minutes
+suspend: false
+
+database:
+  host: db.int.scotts.house
+  name: hoochstats
+  # User/password are stored in a Secret. Either let the chart create one from
+  # the values below, or point at an existing Secret via existingSecret.
+  user: hoochstats
+  password: ""                 # used only when existingSecret is empty
+  existingSecret: ""           # name of a pre-existing Secret
+  userKey: DB_USER             # key within the Secret holding the username
+  passwordKey: DB_PASSWORD     # key within the Secret holding the password
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+# Pod-level security context. Matches the non-root user baked into the image.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+env: []                        # extra env vars, e.g. [{name: TZ, value: UTC}]
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+podAnnotations: {}
+podLabels: {}
